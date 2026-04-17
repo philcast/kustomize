@@ -1,0 +1,49 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-deploy
+  labels:
+    myversion: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clinic-front
+  template:
+    metadata:
+      labels:
+        app: clinic-front
+    spec: # specification du pod
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: springboot
+          image: ghcr.io/philcast/spring-petclinic:4.0.0-SNAPSHOT
+          env:
+            - name: SERVER_SERVLET_CONTEXT_PATH # On force le contexte de l'application à tp6
+              value: "/"
+          startupProbe:
+            httpGet:
+              path: /actuator/health/readiness    # Endpoint Spring Boot Actuator pour vérifier la disponibilité
+              port: 8080                              # Port d'écoute du conteneur
+            initialDelaySeconds: 10                   # Délai avant la première tentative (10s)
+            periodSeconds: 10                         # Intervalle entre les tentatives (10s)
+            timeoutSeconds: 2                         # Timeout pour chaque requête HTTP (2s)
+            failureThreshold: 30                      # Nombre d'échecs tolérés avant conclusion d'échec (30 tentatives = 5 min)
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness    # Endpoint dédié à la vérification de vie (vs. readiness)
+              port: 8080
+            initialDelaySeconds: 30                  # Attendre 30s après que le démarrage soit confirmé
+            periodSeconds: 10                        # Vérifier toutes les 10 secondes
+            timeoutSeconds: 2
+            failureThreshold: 3                      # Redémarrer après 3 échecs consécutifs (~30 secondes)
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness   # Même endpoint que startup
+              port: 8080
+            initialDelaySeconds: 20                  # Attendre 20s (moins strict que liveness)
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6                      # Retirer du trafic après 6 échecs (~60 secondes)
