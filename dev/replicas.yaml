@@ -1,0 +1,3 @@
+replicas:
+  - name: clinic-deploy
+    count: 3
